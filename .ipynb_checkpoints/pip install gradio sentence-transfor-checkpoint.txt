@@ -1,0 +1,55 @@
+pip install flask sentence-transformers torch scikit-learn gradio
+
+import gradio as gr
+from sentence_transformers import SentenceTransformer, util
+import torch
+
+
+# --- Load Model and Data ---
+model = SentenceTransformer("all-MiniLM-L6-v2")
+
+faq_data = {
+    "How does the return policy work?": "You can return most items within 30 days of purchase with a receipt.",
+    "What are your store hours this weekend?": "We are open from 9 AM to 6 PM on both Saturday and Sunday.",
+    "Can I track my order online?": "Yes, use the tracking link provided in your shipping confirmation email.",
+    "How do I reset my password?": "Click 'Forgot Password?' on the login page and follow the email instructions."
+}
+
+
+faq_questions = list(faq_data.keys())
+faq_embeddings = model.encode(faq_questions, convert_to_tensor=True)
+similarity_threshold = 0.9
+
+# --- Chatbot Logic ---
+def ask_chatbot(user_query):
+    if not user_query.strip():
+        return "Please enter a question."
+
+def ask_chatbot(user_query):
+    query_embedding = model.encode(user_query, convert_to_tensor=True)
+    cosine_scores = util.cos_sim(query_embedding, faq_embeddings)
+    
+    best_match_index = torch.argmax(cosine_scores).item()
+    best_score = cosine_scores[0, best_match_index].item()
+
+def find_faq_answer(user_query, faq_questions, faq_data, similarity_threshold=0.8):
+    # Everything inside the function must be indented 4 spaces
+    best_score = 0.9 
+    best_match_index = 0
+    
+    if best_score >= similarity_threshold:
+        # Code inside the 'if' block must be indented an additional 4 spaces
+        best_question = faq_questions[best_match_index]
+        return faq_data[best_question]
+
+    return "Sorry, I couldn't find a relevant answer."
+
+
+demo = gr.Interface(
+    fn=ask_chatbot,
+    inputs=gr.Textbox(placeholder="Ask a question"),
+    outputs="text",
+    title="FAQ Chatbot"
+)
+
+demo.launch()

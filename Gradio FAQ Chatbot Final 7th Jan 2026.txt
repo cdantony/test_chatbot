@@ -1,0 +1,56 @@
+pip install flask sentence-transformers torch scikit-learn gradio
+
+import gradio as gr
+from sentence_transformers import SentenceTransformer, util
+import torch
+
+# --- Load Model and Data ---
+model = SentenceTransformer("all-MiniLM-L6-v2")
+
+faq_data = {
+    "How does the return policy work?": "You can return most items within 30 days of purchase with a receipt.",
+    "What are your store hours this weekend?": "We are open from 9 AM to 6 PM on both Saturday and Sunday.",
+    "Can I track my order online?": "Yes, use the tracking link provided in your shipping confirmation email.",
+    "How do I reset my password?": "Click 'Forgot Password?' on the login page and follow the email instructions."
+}
+
+faq_questions = list(faq_data.keys())
+faq_embeddings = model.encode(faq_questions, convert_to_tensor=True)
+similarity_threshold = 0.6 # Reduced threshold slightly for better matching examples
+
+# --- Corrected Chatbot Logic Function ---
+def ask_chatbot(user_query):
+    # 1. Handle empty query
+    if not user_query.strip():
+        return "Please enter a question."
+    
+    # 2. Encode the user query
+    query_embedding = model.encode(user_query, convert_to_tensor=True)
+    
+    # 3. Calculate similarity scores
+    cosine_scores = util.cos_sim(query_embedding, faq_embeddings)
+    
+    # 4. Find the best match
+    best_match_index = torch.argmax(cosine_scores).item()
+    best_score = cosine_scores[0, best_match_index].item()
+    
+    # 5. Check threshold and return the answer or a fallback message
+    if best_score >= similarity_threshold:
+        best_question = faq_questions[best_match_index]
+        # This is the crucial return statement that sends the answer back to Gradio
+        return faq_data[best_question]
+    else:
+        # If no match is found above the threshold
+        return "Sorry, I couldn't find a relevant answer in my FAQs."
+
+# --- Gradio Interface Setup ---
+demo = gr.Interface(
+    fn=ask_chatbot,  # This now points to the consolidated, working function
+    inputs=gr.Textbox(placeholder="Ask a question about store hours, returns, or tracking..."),
+    outputs="text",
+    title="FAQ Chatbot"
+)
+
+# --- Launch the App ---
+if __name__ == "__main__":
+    demo.launch()
